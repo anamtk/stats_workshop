@@ -1,0 +1,341 @@
+---
+title: "Introduction to Statistics in R"
+format: html
+editor: visual
+---
+
+### Learning Goals:
+
+1.  Review common statistical tests.
+2.  Learn how to run these statistical tests in R.
+
+### Overview of this workshop
+
+In this workshop, we are going to re-introduce common statistical tests you have already been introduced to in JMP. We will review what kinds of data require different statistical tests and learn how to run these statistical tests in R. We will walk through how to get summary statistics for each test in R so that you can use these in scientific reports.
+
+#### You will need these R packages installed and loaded:
+
+```{r}
+#| include: false
+library(palmerpenguins)
+library(ggplot2)
+library(tidyverse)
+library(multcomp)
+```
+
+```{r}
+#| eval: false
+install.packages(c("palmerpenguins", "tidyverse", "multcomp"))
+
+library(multcomp)
+library(palmerpenguins)
+library(ggplot2)
+library(tidyverse)
+```
+
+### Review of key statistics terms
+
+**Hypotheses**: testable statements of expectation or prediction.
+
+**Null hypothesis**: sample means are not different.
+
+**Alternative hypothesis**: sample means are different.
+
+**Degrees of freedom**: the number of replicates minus the number of groups you are testing (usually, but varies by test)
+
+### Loading our example dataset
+
+![](lter_penguins.png)
+
+For the examples below, I'm going to be using an ecological dataset on [penguins](https://allisonhorst.github.io/palmerpenguins/) from Palmer Station in Antarctica.
+
+```{r}
+#get the penguins dataset from the palmerpenguins package
+penguins <- palmerpenguins::penguins
+```
+
+What data do we have in the `penguins` dataset?
+
+```{r}
+str(penguins)
+```
+
+We can see from the `str()` function that the penguins dataset has a set of bill, flipper, and body mass measurements for penguins from a set of species from different islands. These individuals are also different sexes and from different years.
+
+### Summary statistics in R
+
+Maybe even before you start analyzing your data, you may be interested in the distribution of your data, especially within and across groups. You can calculate common summary statistics using functions in R.
+
+```{r}
+#mean body mass of penguins
+mean(penguins$body_mass_g)
+```
+
+If any of our data are `NA` values - the `mean()` function will tell us that the mean is also `NA`. This is not helpful! There is an additional *argument* in the mean function that lets us bypass this:
+
+```{r}
+#get the mean body mass of penguins and remember to remove NA values!
+mean(penguins$body_mass_g, na.rm = T)
+```
+
+You could also look at the means across groups using the `tidyverse`
+
+```{r}
+penguins %>%
+  #group the penguins dataset by sex
+  group_by(sex) %>%
+  #look at the mean body mass by sex
+  summarise(mean = mean(body_mass_g, na.rm = T))
+```
+
+### T-tests
+
+**USE**: T-tests test differences in the mean of **two** groups.
+
+Using the penguins dataset, we could come up with a number of ways that this dataset is "grouped". One of the "groups" that only has two categories is sex, so we can use a t-test to test for differences in mean body measurements between male and female penguins. Let's start by examining body mass.
+
+What is the hypothesis?
+
+What is the null hypothesis?
+
+What is the alternative hypothesis?
+
+We can use the `t.test()` function to test whether penguins of different sexes have different mean body masses.
+
+```{r}
+#is there a difference in body mass by sex in the penguin dataset?
+t.test(penguins$body_mass_g ~ penguins$sex)
+```
+
+This summary shows us three important statistics, including the *t-statistic* (`t`), the *degrees of freedom* (`df`), and the *p-value* (`p-value`). It also gives us the means for each group.
+
+Remember, if you are running t-tests in a scientific paper, you will want to report the *t-statistic*, *degrees of freedom*, and *p-value*. In this case, running the `t.test()` function provides an output of all of these values for you.
+
+We can look at the differences in penguin mass by sex by plotting these data using the `ggplot()` function in the `ggplot2` package.
+
+First, above we noticed that there are `NA` values in the `sex` column, so we will want to remove those rows from the dataset using the `filter()` function. This doesn't actually matter for the t-test itself, but makes the visualization make sense:
+
+```{r}
+penguins_2 <- penguins %>%
+  #filter() removes or keeps rows based on conditions
+  filter(!is.na(sex)) #! tells R "not" and the is.na() function tests for NA values
+# so this filter is looking at the "sex" column in the dataset and keeping all rows
+# where "sex" is *not NA*
+```
+
+```{r}
+#| warning: false
+ggplot(data  = penguins_2, #the dataset we want to visualize
+       mapping = aes(x = sex, #the "aesthitics" aka what is "x" and "y"?
+                     y = body_mass_g)) +
+  geom_boxplot() #what kind of plot do we want to plot? I've chosen a boxplot.
+```
+
+We can see that, even across species, that we have to reject the null hypothesis that "female and male penguins are the same body mass"
+
+### ANOVA
+
+**USE**: Tests differences between **two or more groups**.
+
+The penguins dataset also has the potential for us to test across more than two levels of one group (one-way ANOVA) or across different combinations of groups (two-way ANOVA). For example, we could look at body mass across species (one-way ANOVA), or across species and sex (two-way ANOVA).
+
+Why don't we try the simpler of these two, and just look at how body mass varies across the three different species of penguins in the dataset (one-way ANOVA).
+
+What is the hypothesis?
+
+What is the null hypothesis?
+
+What is the alternative hypothesis?
+
+There are a couple of functions that let us do this, including the `oneway.test()` function.
+
+```{r}
+
+oneway.test(body_mass_g ~ species, #body mass differences by species group
+  data = penguins, #define the dataset we want to use
+  var.equal = TRUE # assuming equal variances
+)
+
+```
+
+And the combiation of the `aov()` and `summary()` functions:
+
+```{r}
+penguin_anova <- aov(body_mass_g ~ species,
+  data = penguins
+)
+
+summary(penguin_anova)
+```
+
+In the `oneway.test()` function above, we see that we get an *f-statistic* (`F`), the *degrees of freedom* for our group (`num df`), and a *p-value* (`p-value`). We get similar results from the two-step process using `aov()` and `summary()`. In this case, the values are presented as a table, in which we are interested in the `species` row, with `F` being the *f-statistic*, `Df` being the *degrees of freedom*, and `Pr(>F)` being the *p-value*.
+
+Remember, if you are using an ANOVA in a scientific paper, you will want to report the *f-statistic*, *degrees of freedom* and *p-value*.
+
+ANOVAs are a bit different from t-tests because they have multiple "paths". If you tested for a difference among groups and found no difference (p-value \>0.05), then you would stop where we are now and report only the results of the ANOVA test. However, if there is a difference (p-value \< 0.05), you might want to know *how* the species differ from each other. We can do this by performing a **post-hoc test** like a Tukey's HSD test. These tests penalize each comparison because you are testing many groups and so might just randomly get a significant value even if the relationship wasn't significant (*type-1 error* in statistics).
+
+For this test, we'll be using the `glht()` function in the `multcomp` package, which performs a Tukey's HSD test on an ANOVA with a significant difference.
+
+```{r}
+# Tukey HSD test:
+post_test <- glht(penguin_anova, #define the ANOVA object to test
+  linfct = mcp(species = "Tukey") #tell the function to run Tukey's
+)
+
+#look at the summary:
+summary(post_test)
+```
+
+In this summary, we are interested in the values under the *Linear Hypothesis* header. each of these is a comparison with the null hypothesis defined ("== 0" means that we're testing each pair with the null hypothesis that they are not different). The last column in this table `Pr(>|t|)` gives the *adjusted* p-value for differences among pairs.
+
+What we can interpret by looking at this table is that the mean body mass for a Gentoo and Adelie penguin are significantly different, and so are the mean body masses for Gentoo and Chinstrap penguins. However, Chinstrap and Adelie penguins do not have clearly different mean body masses.
+
+We can visualize these results again using `ggplot()` and a boxplot
+
+```{r}
+#| warning: false
+
+ggplot(data = penguins, #using the penguins dataset
+       mapping = aes(x = species, #x axis is each species
+                     y = body_mass_g)) + #y axis is the body mass
+  geom_boxplot() #what kind of plot are we making - boxplot
+
+```
+
+It appears that Gentoo penguins are much bigger than both Adelie and Chinstrap penguins, but that Adelie and Chinstrap are relatively similar size.
+
+### Linear regression
+
+**USE**: Tests for relationship different from the mean line of two variables.
+
+We might also be interested in whether penguins with a larger mass had longer flippers, which we can also test using the penguins dataset. For this test, we'll use a linear regression, since we are interested in the relationship between two continuous variables and how that relationship varies from the mean line.
+
+What is the hypothesis?
+
+What is the null hypothesis?
+
+What is the alternative hypothesis?
+
+For this test, we are going to use the `lm()` function in conjunction with the `summary()` function to test for a relationship between body mass and flipper length in penguins.
+
+```{r}
+regression_mod <- lm(flipper_length_mm ~ body_mass_g, #predicting flipper length
+                     #from body mass
+                     data = penguins) #data is the penguins dataset
+
+summary(regression_mod)
+```
+
+This output looks really similar to the output of the `aov()` and `summary()` combo for ANOVAs above, which is nice for interpretation across tests! In this case, we might be interested in both rows of the table, since the intercept row gives us an idea of where the "line" of our linear model crosses the y-axis (the "intercept"). However, what we are mostly interested in is the linear relationship between body mass and flipper length, which we can gather from the `body_mass_g` row. In this table, the `Estimate` tells you the "slope" of the relationship (line) between body mass and flipper length. In this case, it is a positive value, so larger body mass also means longer flipper length. The next value we are interested in is the `Pr(>|t|)` column, which gives us the *p-value* of the relationship between body mass and flipper length. We can also see below the table that we have several $R^2$ statistics reported. In this case with just one predictor variable, we can look at either, because they are the same. In this case, our $R^2 = 0.76$, which suggests a strong relationship between body mass and flipper length. You can also see that in this summary we get a *degrees of freedom*. Remember, for a scientific paper, you would want to report the *degrees of freedom* and the $R^2$ value.
+
+We can visualize this linear relationship a couple of ways, either by letting `ggplot` define the linear relationship using the `geom_smooth()` layer on the plot, or by defining our own linear relationship using the results of the table from the `summary()` function above for the intercept and slope values and using the `geom_abline()` layer on the plot
+
+Version 1:
+
+```{r}
+#| warning: false
+ggplot(penguins, aes(x = body_mass_g, y = flipper_length_mm)) +
+  geom_point() +
+  geom_smooth(method = 'lm', #method is linear regression model, 'lm'
+              se = F) #don't show the shaded standard errors
+```
+
+Version 2:
+
+```{r}
+ggplot(penguins, aes(x = body_mass_g, y = flipper_length_mm)) +
+  geom_point() +
+  geom_abline(slope = 1.528e-02, #the "Estimate" for body_mass_g from summary
+              intercept = 1.367e+02) #the "Estimate" for the intercept from summary
+```
+
+### Chi-Squared Test
+
+**USE**: Tests "goodness of fit" for categorical data. Or: is the frequency distribution different from random?
+
+Chi-Squared tests look at the frequency distributions of the occurrence of different combinations of two groups and assess whether the frequency distributions are the same across groups. In the penguins dataset, we might be interested in whether the ratio of male to female penguins is the same across islands. Maybe some islands have more females than others?
+
+What is the hypothesis?
+
+What is the null hypothesis?
+
+What is the alternative hypothesis?
+
+For Chi-squared tests, we need to get the data into the format of a *contingency table*. This is a fancy word for a table that summaries the frequency (counts) of observations in different combinations of categories. In this case, we are interested in the category of *island* and the category of *sex* on each island. We can set up this contingency table using tools we've already used in the `tidyverse` package, including grouping variables by different columns and summarizing by groups. Remember that some of the sex values were `NA` in the original dataset, so we'll start with the `penguins_2` object we created to visualize the results of the t-test above of body mass by sex.
+
+```{r}
+penguins_3 <- penguins_2 %>%
+  #get a tally by combinations of island and sex
+  group_by(island, sex) %>%
+  tally()
+
+#look at this dataset
+penguins_3
+```
+
+This still isn't *quite* a contingency table, but we can use some more `tidyverse` data manipulation to get us there.
+
+```{r}
+penguins_4 <- penguins_3 %>%
+  pivot_wider(names_from = sex, #make each sex its own column
+              values_from = n) %>% #fill those columns with the counts
+  column_to_rownames(var = "island") #make the island name the row names vs its own column
+
+penguins_4
+```
+
+Now this is a contingency table that we can test with a Chi-squared test! In R, the function we'll be using is `chisq.test()`
+
+```{r}
+chisq.test(penguins_4)
+```
+
+In this case, we see the X-squared statistic, the degrees of freedom (`df`) and the `p-value` of the test. We can interpret this that there is no difference in the distributions of male-female across islands because the p-value is \> 0.05. In a scientific paper, you would report the `X-squared` statistic, the *degrees of freedom* (`df`) and the `p-value`.
+
+There are several ways we could visualize these data, but one way might be to present proportional bar graphs of male-female ratios for each island. Now, even though the `chisq.test()` function wanted some version of the data in a contingency table, we can go back to the "tidy" data we first summarized in the `penguins_3` data object
+
+```{r}
+str(penguins_3)
+ggplot(data = penguins_3, #the "tidy" summarised island-sex penguin dataset
+       mapping = aes(x = island, #x is the island
+                     y = n, #y is the count of male-female on each island
+                     fill = sex)) + #color of the bar portion is sex
+geom_bar(stat = "identity", #tell geom_bar that we want to see each group
+         position = "fill") #make each proportional to 1 in that group
+```
+
+As you can see visually - there are no clear differences in the sex ratios per island.
+
+### Final notes:
+
+#### A word of caution about statistics
+
+All of these tests come with underlying "assumptions" about the data you are fitting to the tests. This is the subject matter of entire semester-long statistics courses, but I just wanted to caution not to use tests as presented here and assume they are "right", especially for ecological data. Ecological data tends to have unequal sample sizes, weird data distributions, and many other attributes that mean many of these tests are not always the most proper tests to use. The statistics resources linked on the bottom of the [workshop website](https://anamtk.github.io/NAU_R_Workshop/) would be a great place to start diving deeper into the messy world of ecological statistics!
+
+#### Visualizations
+
+One of the great things about `ggplot2` is that you can also put the text of summary statistics and indicators in to graphs. So, for a linear regression, you could put the $R^2$ value of the relationship somewhere on the graph. It's somewhat outside the scope of the introductory nature of the material I presented today, but online forums have great tutorials on how to do this. Also, just a keyword hint, `annotate()` layers in `ggplot()` let you add all kinds of fun text and other symbols.
+
+Here's a figure I might put in a paper for a linear regression:
+
+```{r}
+#| warning: false
+
+label <- paste("R^2 == 0.78")
+
+ggplot(penguins, aes(x = body_mass_g, y = flipper_length_mm)) +
+  geom_point(size = 2) +
+  geom_abline(slope = 1.528e-02, #the "Estimate" for body_mass_g from summary
+              intercept = 1.367e+02,
+              size = 1.25) +#the "Estimate" for the intercept from summary
+  theme_bw() +
+  annotate(geom = "text",
+           x = 3000, y = 220,
+           label = label,
+           size = 6,
+           parse = T) +
+  labs(x = "Body mass (g)", y = "Flipper length (mm)") +
+  theme(axis.text = element_text(size = 15),
+        axis.title = element_text(size = 18))
+
+```
