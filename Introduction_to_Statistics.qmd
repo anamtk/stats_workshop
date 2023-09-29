@@ -1,10 +1,13 @@
 ---
 title: "Introduction to Statistics in R"
-format: html
-editor: visual
+format: 
+  html:
+    toc: TRUE
+    toc-title: Contents
+    toc-location: left
 ---
 
-### Learning Goals:
+### Learning Goals
 
 1.  Review common statistical tests.
 2.  Learn how to run these statistical tests in R.
@@ -317,7 +320,7 @@ geom_bar(stat = "identity", #tell geom_bar that we want to see each group
 
 As you can see visually - there are no clear differences in the sex ratios per island.
 
-### Final notes:
+### Final notes
 
 #### A word of caution about statistics
 
